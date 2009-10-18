@@ -15,8 +15,9 @@ ActiveRecord::Base.default_timezone = :utc
 ActiveRecord::Base.logger = Logger.new STDOUT
 
 # connection to the database
-#ActiveRecord::Base.establish_connection :adapter => "sqlite3", :database  => "test.sqlite3"
-ActiveRecord::Base.establish_connection(:adapter => "postgresql", :database => "proper_time_zones_test", :username => "jgrant", :password => '')
+ActiveRecord::Base.establish_connection :adapter => "sqlite3", :database  => ":memory:"
+#ActiveRecord::Base.establish_connection(:adapter => "postgresql", :database => "proper_time_zones_test", :username => "jgrant", :password => '')
+#ActiveRecord::Base.establish_connection(:adapter => "mysql", :database => "proper_time_zones_test", :username => "root", :password => '')
 
 class CreateArticles < ActiveRecord::Migration
   def self.up
@@ -33,14 +34,27 @@ end
 
 class Article < ActiveRecord::Base
   named_scope :by_published, lambda{ |published_at|
-    start_of_published_on = Time.zone.local_to_utc(published_at.to_date.to_time)
+    start_of_published_on = Time.zone.local_to_utc published_at.beginning_of_day
     # both of the following work to the second which appears to be the best precision that ruby Time has
-    {:conditions => ["published_at between ? and ?", start_of_published_on, start_of_published_on + 1.day - 1.second]}
-    #{:conditions => ["published_at >= ? and published_at < ?", start_of_published_on, (start_of_published_on + 1.day)]}
+    # {:conditions => ["published_at between ? and ?", start_of_published_on, start_of_published_on.tomorrow - 1.second]}
+    # {:conditions => ["published_at >= ? and published_at < ?", start_of_published_on, start_of_published_on.tomorrow]}
+    # Tim's new test using ranges
+    {:conditions => {:published_at => start_of_published_on...start_of_published_on.tomorrow}}
   }
 
   def published_on
     published_at.to_date
+  end
+end
+
+class Time
+  #def to_range(end_second)
+  #  self...self + end_second
+  #end
+
+  def range(range_end)
+    return self...self + range_end if range_end.is_a? Fixnum
+    super range_end
   end
 end
 
@@ -66,32 +80,45 @@ describe Article do
         Article.destroy_all
       end
 
-      it "should find the 2 articles on the local date 2009-10-08 using the start of the day" do
+      it "should find 2 articles using the start of the day" do
         time = @start_of_the_day
-        Article.by_published(time).each do |article|
-          article.published_on.to_s(:long).should.equal "October  8, 2009"
-        end
+        Article.by_published(time).size.should == 2
+      end
+
+      it "should find 2 articles using the end of the day" do
+        time = @end_of_the_day
+        Article.by_published(time).size.should == 2
+      end
+
+      it "should find 2 articles using some arbitrary time of the day" do
+        time = Time.zone.parse "2009-10-08 12:34:56.789012"
+        Article.by_published(time).size.should == 2
+      end
+
+      it "should find 2 articles using a the date 2009-10-08" do
+        time = Date.parse "2009-10-08"
+        Article.by_published(time).size.should == 2
+      end
+
+
+      it "should find 2 articles on the local date 2009-10-08 using the start of the day" do
+        time = @start_of_the_day
+        Article.by_published(time).each { |article| article.published_on.to_s(:long).should.equal "October  8, 2009" }
       end
 
       it "should find 2 on the local date 2009-10-08 articles using the end of the day" do
         time = @end_of_the_day
-        Article.by_published(time).each do |article|
-          article.published_on.to_s(:long).should.equal "October  8, 2009"
-        end
+        Article.by_published(time).each { |article| article.published_on.to_s(:long).should.equal "October  8, 2009" }
       end
 
       it "should find 2 on the local date 2009-10-08 articles using some arbitrary time of the day" do
         time = Time.zone.parse "2009-10-08 12:34:56.789012"
-        Article.by_published(time).each do |article|
-          article.published_on.to_s(:long).should.equal "October  8, 2009"
-        end
+        Article.by_published(time).each { |article| article.published_on.to_s(:long).should.equal "October  8, 2009" }
       end
 
-      it "should find 2 on the local date 2009-10-08 articles using some arbitrary time of the day" do
+      it "should find 2 on the local date 2009-10-08 articles using the date 2009-10-08" do
         time = Date.parse "2009-10-08"
-        Article.by_published(time).each do |article|
-          article.published_on.to_s(:long).should.equal "October  8, 2009"
-        end
+        Article.by_published(time).each { |article| article.published_on.to_s(:long).should.equal "October  8, 2009" }
       end
 
     end
