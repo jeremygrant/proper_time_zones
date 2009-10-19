@@ -4,6 +4,7 @@ require 'activerecord'
 require 'bacon'
 require 'facon'
 require 'sqlite3'
+require 'by_star'
 
 # setting the default timezone to UTC
 Time.zone_default = 'UTC'
@@ -33,14 +34,18 @@ class CreateArticles < ActiveRecord::Migration
 end
 
 class Article < ActiveRecord::Base
-  named_scope :by_published, lambda{ |published_at|
-    start_of_published_on = Time.zone.local_to_utc published_at.beginning_of_day
-    # both of the following work to the second which appears to be the best precision that ruby Time has
-    # {:conditions => ["published_at between ? and ?", start_of_published_on, start_of_published_on.tomorrow - 1.second]}
-    # {:conditions => ["published_at >= ? and published_at < ?", start_of_published_on, start_of_published_on.tomorrow]}
-    # Tim's new test using ranges
-    {:conditions => {:published_at => start_of_published_on...start_of_published_on.tomorrow}}
-  }
+  include ByStar
+  #named_scope :by_published, lambda{ |published_at|
+  #  start_of_published_on = Time.zone.local_to_utc published_at.beginning_of_day
+  #  # both of the following work to the second which appears to be the best precision that ruby Time has
+  #  # {:conditions => ["published_at between ? and ?", start_of_published_on, start_of_published_on.tomorrow - 1.second]}
+  #  # {:conditions => ["published_at >= ? and published_at < ?", start_of_published_on, start_of_published_on.tomorrow]}
+  #  # Tim's new test using ranges
+  #  {:conditions => {:published_at => start_of_published_on...start_of_published_on.tomorrow}}
+  #}
+  def self.by_published(time)
+    by_day time, :field => "published_at"
+  end
 
   def published_on
     published_at.to_date
