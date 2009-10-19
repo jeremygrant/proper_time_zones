@@ -44,8 +44,7 @@ class Article < ActiveRecord::Base
   #}
 
   def self.by_published(time)
-    scoped_by_published_at time.beginning_of_day..time.beginning_of_day.tomorrow
-    #scoped_by_published_at time.beginning_of_day..(time.beginning_of_day.tomorrow-1.second)
+    scoped_by_published_at time.beginning_of_day..time.end_of_day
   end
 
   def published_on
