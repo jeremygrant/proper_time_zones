@@ -4,6 +4,7 @@ require 'activerecord'
 require 'bacon'
 require 'facon'
 require 'sqlite3'
+require 'by_star'
 
 # setting the default timezone to UTC
 Time.zone_default = 'UTC'
@@ -33,14 +34,19 @@ class CreateArticles < ActiveRecord::Migration
 end
 
 class Article < ActiveRecord::Base
-  named_scope :by_published, lambda{ |published_at|
-    start_of_published_on = Time.zone.local_to_utc published_at.beginning_of_day
-    # both of the following work to the second which appears to be the best precision that ruby Time has
-    # {:conditions => ["published_at between ? and ?", start_of_published_on, start_of_published_on.tomorrow - 1.second]}
-    # {:conditions => ["published_at >= ? and published_at < ?", start_of_published_on, start_of_published_on.tomorrow]}
-    # Tim's new test using ranges
-    {:conditions => {:published_at => start_of_published_on...start_of_published_on.tomorrow}}
-  }
+  #named_scope :by_published, lambda{ |published_at|
+  #  start_of_published_on = Time.zone.local_to_utc published_at.beginning_of_day
+  # both of the following work to the second which appears to be the best precision that ruby Time has
+  #  {:conditions => ["published_at between ? and ?", start_of_published_on, start_of_published_on.tomorrow - 1.second]}
+  # {:conditions => ["published_at >= ? and published_at < ?", start_of_published_on, start_of_published_on.tomorrow]}
+  # Tim's new test using ranges
+  # {:conditions => {:published_at => start_of_published_on...start_of_published_on.tomorrow}}
+  #}
+
+  def self.by_published(time)
+    scoped_by_published_at time.beginning_of_day..time.beginning_of_day.tomorrow
+    #scoped_by_published_at time.beginning_of_day..(time.beginning_of_day.tomorrow-1.second)
+  end
 
   def published_on
     published_at.to_date
@@ -96,7 +102,7 @@ describe Article do
       end
 
       it "should find 2 articles using a the date 2009-10-08" do
-        time = Date.parse "2009-10-08"
+        time = Time.zone.parse "2009-10-08"
         Article.by_published(time).size.should == 2
       end
 
@@ -117,7 +123,7 @@ describe Article do
       end
 
       it "should find 2 on the local date 2009-10-08 articles using the date 2009-10-08" do
-        time = Date.parse "2009-10-08"
+        time = Time.zone.parse "2009-10-08"
         Article.by_published(time).each { |article| article.published_on.to_s(:long).should.equal "October  8, 2009" }
       end
 
