@@ -122,7 +122,7 @@ describe Article do
       end
 
       it "should find 2 on the local date 2009-10-08 articles using the date 2009-10-08" do
-        time = Date.parse "2009-10-08"
+        time = Time.zone.parse "2009-10-08"
         Article.by_published(time).each { |article| article.published_on.to_s(:long).should.equal "October  8, 2009" }
       end
 
